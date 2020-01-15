@@ -23,6 +23,10 @@ func (h *waHandler) ShouldCallSynchronously() bool {
 	return true
 }
 
+func (h *waHandler) HandleContactList(contacts []whatsapp.Contact) {
+	fmt.Println("%v", contacts)
+}
+
 func (h *waHandler) HandleRawMessage(message *proto.WebMessageInfo) {
 	// gather chats jid info from initial messages
 	if message != nil && message.Key.RemoteJid != nil {

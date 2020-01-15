@@ -5,6 +5,9 @@ import (
 	"github.com/Rhymen/go-whatsapp"
 	"log"
 	"time"
+	"strconv"
+	"strings"
+	"os"
 )
 
 // historyHandler for acquiring chat history
@@ -39,6 +42,55 @@ func (h *historyHandler) HandleTextMessage(message whatsapp.TextMessage) {
 	date := time.Unix(int64(message.Info.Timestamp), 0)
 	h.messages = append(h.messages, fmt.Sprintf("%s	%s (%s): %s", date,
 		authorID, screenName, message.Text))
+}
+
+func (h *historyHandler) HandleImageMessage(message whatsapp.ImageMessage) {
+	authorID := "-"
+	screenName := "-"
+	if message.Info.FromMe {
+		authorID = h.c.Info.Wid
+		screenName = ""
+	} else {
+		if message.Info.Source.Participant != nil {
+			authorID = *message.Info.Source.Participant
+		} else {
+			authorID = message.Info.RemoteJid
+		}
+		if message.Info.Source.PushName != nil {
+			screenName = *message.Info.Source.PushName
+		}
+	}
+
+	date := time.Unix(int64(message.Info.Timestamp), 0)
+
+    data, err := message.Download();
+    if err != nil {
+        if err != whatsapp.ErrMediaDownloadFailedWith410 && err != whatsapp.ErrMediaDownloadFailedWith404 {
+            return
+        }
+        _, err := h.c.LoadMediaInfo(message.Info.RemoteJid, message.Info.Id, strconv.FormatBool(message.Info.FromMe));
+        if err != nil {
+           return
+        } else {
+            data, err = message.Download()
+            if err != nil {
+                return
+            }
+        }
+    }
+
+    filename := fmt.Sprintf("/Users/oriol/Downloads/images/%v.%v", message.Info.Id, strings.Split(message.Type, "/")[1])
+    file, err := os.Create(filename)
+    defer file.Close()
+    if err != nil {
+        return
+    }
+    _, err = file.Write(data)
+    if err != nil {
+        return
+    }
+    h.messages = append(h.messages, fmt.Sprintf("%s	%s (%s): image received, saved at %v", date,
+    		authorID, screenName, filename))
 
 }
 
@@ -75,4 +127,5 @@ func GetAnyHistory(wac *whatsapp.Conn, chats map[string]struct{}) {
 	for _, message := range messages {
 		fmt.Println(message)
 	}
+	fmt.Println(len(messages))
 }
